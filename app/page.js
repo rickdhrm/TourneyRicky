@@ -524,15 +524,21 @@ export default function Home() {
       item.pointDifference = item.pointsFor - item.pointsAgainst;
     });
     
+    const maxMP = Math.max(...list.map(p => p.matchesPlayed), 0);
+    
     list.sort((a, b) => {
       if (activeSort === "wins") {
         if (b.wins !== a.wins) return b.wins - a.wins;
         if (b.pointDifference !== a.pointDifference) return b.pointDifference - a.pointDifference;
-        if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
+        const bTotal = b.pointsFor + (maxMP - b.matchesPlayed) * 10;
+        const aTotal = a.pointsFor + (maxMP - a.matchesPlayed) * 10;
+        if (bTotal !== aTotal) return bTotal - aTotal;
       } else {
         if (b.tournamentPoints !== a.tournamentPoints) return b.tournamentPoints - a.tournamentPoints;
         if (b.pointDifference !== a.pointDifference) return b.pointDifference - a.pointDifference;
-        if (b.pointsFor !== a.pointsFor) return b.pointsFor - a.pointsFor;
+        const bTotal = b.pointsFor + (maxMP - b.matchesPlayed) * 10;
+        const aTotal = a.pointsFor + (maxMP - a.matchesPlayed) * 10;
+        if (bTotal !== aTotal) return bTotal - aTotal;
       }
       return a.name.localeCompare(b.name);
     });
@@ -569,11 +575,15 @@ export default function Home() {
   // --- CSV EXPORTER ---
   const exportCSV = () => {
     const csvHeaders = [
-      "Rank", "Player Name", "Matches Played", "Record (W-T-L)", "Score Difference (SD)", "Tournament Points (TP)", "Total Score"
+      "Rank", "Player Name", "Matches Played", "Record (W-T-L)", "Score Difference (SD)", "Tournament Points (TP)", "+M", "Total Score"
     ];
     const csvRows = [csvHeaders.join(",")];
     
+    const maxMP = Math.max(...standingsList.map(p => p.matchesPlayed), 0);
+    
     standingsList.forEach((item, index) => {
+      const compensation = (maxMP - item.matchesPlayed) * 10;
+      const totalScore = item.pointsFor + compensation;
       const row = [
         index + 1,
         `"${item.name.replace(/"/g, '""')}"`,
@@ -581,7 +591,8 @@ export default function Home() {
         `"${item.wins}-${item.ties}-${item.losses}"`,
         item.pointDifference,
         item.tournamentPoints,
-        item.pointsFor
+        compensation > 0 ? `+${compensation}` : 0,
+        totalScore
       ];
       csvRows.push(row.join(","));
     });
@@ -1058,43 +1069,112 @@ export default function Home() {
                       <table className="leaderboard-table">
                         <thead>
                           <tr>
-                            <th scope="col" className="col-rank">Rank</th>
-                            <th scope="col" class="col-player">Player</th>
-                            <th scope="col" className="col-stat" title="Matches Played">MP</th>
-                            <th scope="col" className={`col-stat ${activeSort === "wins" ? "col-highlight" : ""}`} title="Record (Wins-Ties-Losses)">W-T-L</th>
-                            <th scope="col" className="col-stat" title="Score Difference">SD</th>
-                            <th scope="col" className={`col-stat ${activeSort === "points" ? "col-highlight" : ""}`} title="Tournament Points">TP</th>
-                            <th scope="col" className="col-stat" title="Total Score (Points Scored)">Total Score</th>
+                            <th scope="col" className="col-rank">
+                              <div>Rank</div>
+                              <span style={{ fontSize: "10px", fontWeight: "normal", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>Position</span>
+                            </th>
+                            <th scope="col" className="col-player">
+                              <div>Player</div>
+                              <span style={{ fontSize: "10px", fontWeight: "normal", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>Name</span>
+                            </th>
+                            <th scope="col" className="col-stat" title="Matches Played">
+                              <div>MP</div>
+                              <span style={{ fontSize: "10px", fontWeight: "normal", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>Played</span>
+                            </th>
+                            <th scope="col" className={`col-stat ${activeSort === "wins" ? "col-highlight" : ""}`} title="Record (Wins-Ties-Losses)">
+                              <div>W-T-L</div>
+                              <span style={{ fontSize: "10px", fontWeight: "normal", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>Wins-Ties-Losses</span>
+                            </th>
+                            <th scope="col" className="col-stat" title="Score Difference">
+                              <div>SD</div>
+                              <span style={{ fontSize: "10px", fontWeight: "normal", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>Score Diff</span>
+                            </th>
+                            <th scope="col" className={`col-stat ${activeSort === "points" ? "col-highlight" : ""}`} title="Tournament Points">
+                              <div>TP</div>
+                              <span style={{ fontSize: "10px", fontWeight: "normal", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>Win:2 / Tie:1 / Loss:0</span>
+                            </th>
+                            <th scope="col" className="col-stat" title="Points Scored on Court">
+                              <div>PTS</div>
+                              <span style={{ fontSize: "10px", fontWeight: "normal", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>Points Scored</span>
+                            </th>
+                            <th scope="col" className="col-stat" title="Match Compensation (+10 points per missing match)">
+                              <div>+M</div>
+                              <span style={{ fontSize: "10px", fontWeight: "normal", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>+10 pts/miss</span>
+                            </th>
+                            <th scope="col" className="col-stat" title="Total Score (Match Points + Compensation)">
+                              <div>Total Score</div>
+                              <span style={{ fontSize: "10px", fontWeight: "normal", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>Scored + (+M)</span>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
                           {filteredStandings.length === 0 ? (
                             <tr>
-                              <td colSpan="7" style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px" }}>
+                              <td colSpan="9" style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px" }}>
                                 No matching players found.
                               </td>
                             </tr>
                           ) : (
-                            filteredStandings.map((item) => {
-                              const absoluteRank = standingsList.findIndex((p) => p.id === item.id) + 1;
-                              const diffText = item.pointDifference > 0 ? `+${item.pointDifference}` : item.pointDifference;
-                              return (
-                                <tr key={item.id}>
-                                  <td className="col-rank">
-                                    <span className="rank-badge">{absoluteRank}</span>
-                                  </td>
-                                  <td className="col-player" title={item.name}>{item.name}</td>
-                                  <td className="col-stat">{item.matchesPlayed}</td>
-                                  <td className={`col-stat ${activeSort === "wins" ? "col-highlight" : ""}`}>{`${item.wins}-${item.ties}-${item.losses}`}</td>
-                                  <td className="col-stat">{diffText}</td>
-                                  <td className={`col-stat ${activeSort === "points" ? "col-highlight" : ""}`}>{item.tournamentPoints}</td>
-                                  <td className="col-stat">{item.pointsFor}</td>
-                                </tr>
-                              );
-                            })
+                            (() => {
+                              const maxMP = Math.max(...standingsList.map(p => p.matchesPlayed), 0);
+                              return filteredStandings.map((item) => {
+                                const absoluteRank = standingsList.findIndex((p) => p.id === item.id) + 1;
+                                const diffText = item.pointDifference > 0 ? `+${item.pointDifference}` : item.pointDifference;
+                                const compensation = (maxMP - item.matchesPlayed) * 10;
+                                const totalScore = item.pointsFor + compensation;
+                                const compText = compensation > 0 ? `+${compensation}` : "0";
+                                
+                                return (
+                                  <tr key={item.id}>
+                                    <td className="col-rank">
+                                      <span className="rank-badge">{absoluteRank}</span>
+                                    </td>
+                                    <td className="col-player" title={item.name}>{item.name}</td>
+                                    <td className="col-stat">{item.matchesPlayed}</td>
+                                    <td className={`col-stat ${activeSort === "wins" ? "col-highlight" : ""}`}>{`${item.wins}-${item.ties}-${item.losses}`}</td>
+                                    <td className="col-stat">{diffText}</td>
+                                    <td className={`col-stat ${activeSort === "points" ? "col-highlight" : ""}`}>{item.tournamentPoints}</td>
+                                    <td className="col-stat">{item.pointsFor}</td>
+                                    <td className="col-stat" style={{ color: compensation > 0 ? "var(--primary)" : "inherit", fontWeight: compensation > 0 ? "bold" : "normal" }}>{compText}</td>
+                                    <td className="col-stat">{totalScore}</td>
+                                  </tr>
+                                );
+                              });
+                            })()
                           )}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                  
+                  {/* Legend & Glossary Section */}
+                  <div className="card standings-legend" style={{ marginTop: "24px", padding: "20px" }}>
+                    <h4 style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: "700", marginBottom: "16px", color: "var(--primary)" }}>Standings Legend & Glossary</h4>
+                    <div className="legend-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "20px" }}>
+                      <div className="legend-item">
+                        <strong style={{ fontSize: "14px", color: "var(--text-main)", display: "block", marginBottom: "4px" }}>MP (Matches Played)</strong>
+                        <p style={{ fontSize: "13px", color: "var(--text-muted)", lineHeight: "1.5", margin: 0 }}>The total number of matches this player has played. It is necessary for tracking player participation, verifying fair rotations, and calculating point compensation (+M) if matches are skipped or cut short.</p>
+                      </div>
+                      <div className="legend-item">
+                        <strong style={{ fontSize: "14px", color: "var(--text-main)", display: "block", marginBottom: "4px" }}>W-T-L (Wins-Ties-Losses)</strong>
+                        <p style={{ fontSize: "13px", color: "var(--text-muted)", lineHeight: "1.5", margin: 0 }}>The player's win-tie-loss record. Wins are matches where the player's team scored more than their opponents. Ties are when both teams scored equal points. Losses are matches lost.</p>
+                      </div>
+                      <div className="legend-item">
+                        <strong style={{ fontSize: "14px", color: "var(--text-main)", display: "block", marginBottom: "4px" }}>SD (Score Difference)</strong>
+                        <p style={{ fontSize: "13px", color: "var(--text-muted)", lineHeight: "1.5", margin: 0 }}>Total points scored minus total points conceded. Used as the primary tie-breaker when players have equal Wins or Tournament Points.</p>
+                      </div>
+                      <div className="legend-item">
+                        <strong style={{ fontSize: "14px", color: "var(--text-main)", display: "block", marginBottom: "4px" }}>TP (Tournament Points)</strong>
+                        <p style={{ fontSize: "13px", color: "var(--text-muted)", lineHeight: "1.5", margin: 0 }}>Points awarded based on match outcomes: <strong>Winner gets 2 points</strong>, <strong>Tie gets 1 point</strong>, and <strong>Loss gets 0 points</strong>. This represents overall competition standings.</p>
+                      </div>
+                      <div className="legend-item">
+                        <strong style={{ fontSize: "14px", color: "var(--text-main)", display: "block", marginBottom: "4px" }}>+M (Match Compensation)</strong>
+                        <p style={{ fontSize: "13px", color: "var(--text-muted)", lineHeight: "1.5", margin: 0 }}>Compensates players if the tournament ends early or matches are skipped. Players receive <strong>+10 points</strong> for every match they played less than the player with the most matches (MP max).</p>
+                      </div>
+                      <div className="legend-item">
+                        <strong style={{ fontSize: "14px", color: "var(--text-main)", display: "block", marginBottom: "4px" }}>Total Score</strong>
+                        <p style={{ fontSize: "13px", color: "var(--text-muted)", lineHeight: "1.5", margin: 0 }}>The final cumulative score used to rank players: <strong>Match Points Scored + Match Compensation (+M)</strong>.</p>
+                      </div>
                     </div>
                   </div>
                 </div>
