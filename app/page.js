@@ -15,7 +15,7 @@ export default function Home() {
   // --- STATE DECLARATIONS ---
   const [isMounted, setIsMounted] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  
+
   // Setup View States
   const [numCourts, setNumCourts] = useState(2);
   const [numPlayers, setNumPlayers] = useState(8);
@@ -24,7 +24,7 @@ export default function Home() {
     Array(8).fill(null).map((_, i) => `Player ${i + 1}`)
   );
   const [setupError, setSetupError] = useState("");
-  
+
   // Active Tournament States
   const [isStarted, setIsStarted] = useState(false);
   const [players, setPlayers] = useState([]); // Array of { id, name }
@@ -32,31 +32,31 @@ export default function Home() {
   const [activeSort, setActiveSort] = useState("wins"); // "wins" or "points"
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("matches"); // "matches" or "leaderboard"
-  
+
   // Toast notifications state
   const [toasts, setToasts] = useState([]);
-  
+
   // Reset Confirmation Modal state
   const [showResetModal, setShowResetModal] = useState(false);
 
   // --- MOUNT EFFECT (LOAD STORAGE) ---
   useEffect(() => {
     setIsMounted(true);
-    
+
     // Load Dark Mode
     const savedState = localStorage.getItem("padel_americano_state");
     if (savedState) {
       try {
         const parsed = JSON.parse(savedState);
         setIsDarkMode(!!parsed.isDarkMode);
-        
+
         if (parsed.isStarted) {
           setPlayers(parsed.players || []);
           setRounds(parsed.rounds || []);
           setActiveSort(parsed.activeSort || "wins");
           setActiveTab(parsed.activeTab || "matches");
           setIsStarted(true);
-          
+
           // Prefill setup fields just in case
           setNumCourts(parsed.setup?.numCourts ?? 2);
           setNumPlayers(parsed.setup?.numPlayers ?? 8);
@@ -104,7 +104,7 @@ export default function Home() {
   const showToast = (message, type = "success") => {
     const id = Date.now() + Math.random().toString(36).substr(2, 9);
     setToasts((prev) => [...prev, { id, message, type, isFading: false }]);
-    
+
     // Trigger fade-out animation before removing
     setTimeout(() => {
       setToasts((prev) =>
@@ -121,7 +121,7 @@ export default function Home() {
     const val = parseInt(count) || 0;
     setNumPlayers(val);
     if (val < 4) return;
-    
+
     setPlayerNames((prev) => {
       if (val > prev.length) {
         const next = [...prev];
@@ -162,26 +162,26 @@ export default function Home() {
     const N = namesList.length;
     const C = courtsCount;
     const matchesPerRound = Math.min(C, Math.floor(N / 4));
-    
+
     // Total matches goal: each player partners with everyone else exactly once
     const totalMatchesGoal = (N * (N - 1)) / 4;
     const numRounds = Math.max(1, Math.ceil(totalMatchesGoal / matchesPerRound));
-    
+
     const partnerCount = Array(N).fill(null).map(() => Array(N).fill(0));
     const opponentCount = Array(N).fill(null).map(() => Array(N).fill(0));
     const playCount = Array(N).fill(0);
     const sittingOutCount = Array(N).fill(0);
-    
+
     const generatedRounds = [];
     let sittingOutPrevRound = new Set();
-    
+
     for (let r = 0; r < numRounds; r++) {
       let bestTrialMatches = null;
       let bestTrialPenalty = Infinity;
       let bestTrialSittingOut = new Set();
-      
+
       const NUM_TRIALS = 10000;
-      
+
       for (let t = 0; t < NUM_TRIALS; t++) {
         // Select players based on match limits and sit-out counts
         const playerWeightList = namesList.map((p, idx) => {
@@ -189,18 +189,18 @@ export default function Home() {
           const weight = playCount[idx] * 100 - sittingOutCount[idx] * 5 + noise;
           return { id: p.id, idx, weight };
         });
-        
+
         playerWeightList.sort((a, b) => a.weight - b.weight);
         const selectedPlayers = playerWeightList.slice(0, matchesPerRound * 4);
         const selectedIds = new Set(selectedPlayers.map((p) => p.id));
-        
+
         const sittingOutThisRound = new Set();
         namesList.forEach((p, idx) => {
           if (!selectedIds.has(p.id)) {
             sittingOutThisRound.add(p.id);
           }
         });
-        
+
         let trialPenalty = 0;
         sittingOutThisRound.forEach((id) => {
           const idx = namesList.findIndex((p) => p.id === id);
@@ -209,38 +209,38 @@ export default function Home() {
           }
           trialPenalty += sittingOutCount[idx] * 50;
         });
-        
+
         // Shuffle playing IDs
         const playingIds = selectedPlayers.map((p) => p.id);
         for (let i = playingIds.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [playingIds[i], playingIds[j]] = [playingIds[j], playingIds[i]];
         }
-        
+
         const trialMatches = [];
         for (let m = 0; m < matchesPerRound; m++) {
           const p0 = playingIds[m * 4 + 0];
           const p1 = playingIds[m * 4 + 1];
           const p2 = playingIds[m * 4 + 2];
           const p3 = playingIds[m * 4 + 3];
-          
+
           const idx0 = namesList.findIndex((p) => p.id === p0);
           const idx1 = namesList.findIndex((p) => p.id === p1);
           const idx2 = namesList.findIndex((p) => p.id === p2);
           const idx3 = namesList.findIndex((p) => p.id === p3);
-          
+
           // Partnership counts
           const pCountA = partnerCount[idx0][idx1];
           const pCountB = partnerCount[idx2][idx3];
           trialPenalty += Math.pow(pCountA, 2) * 2000;
           trialPenalty += Math.pow(pCountB, 2) * 2000;
-          
+
           // Opponent counts
           trialPenalty += opponentCount[idx0][idx2] * 20;
           trialPenalty += opponentCount[idx0][idx3] * 20;
           trialPenalty += opponentCount[idx1][idx2] * 20;
           trialPenalty += opponentCount[idx1][idx3] * 20;
-          
+
           trialMatches.push({
             id: `r${r}-c${m + 1}`,
             court: m + 1,
@@ -251,26 +251,26 @@ export default function Home() {
             submitted: false
           });
         }
-        
+
         if (trialPenalty < bestTrialPenalty) {
           bestTrialPenalty = trialPenalty;
           bestTrialMatches = trialMatches;
           bestTrialSittingOut = sittingOutThisRound;
         }
       }
-      
+
       // Commit best trial pairing
       bestTrialMatches.forEach((m) => {
         const idx0 = namesList.findIndex((p) => p.id === m.teamA[0]);
         const idx1 = namesList.findIndex((p) => p.id === m.teamA[1]);
         const idx2 = namesList.findIndex((p) => p.id === m.teamB[0]);
         const idx3 = namesList.findIndex((p) => p.id === m.teamB[1]);
-        
+
         partnerCount[idx0][idx1]++;
         partnerCount[idx1][idx0]++;
         partnerCount[idx2][idx3]++;
         partnerCount[idx3][idx2]++;
-        
+
         const opponentPairs = [
           [idx0, idx2], [idx0, idx3],
           [idx1, idx2], [idx1, idx3]
@@ -279,22 +279,22 @@ export default function Home() {
           opponentCount[a][b]++;
           opponentCount[b][a]++;
         });
-        
+
         playCount[idx0]++;
         playCount[idx1]++;
         playCount[idx2]++;
         playCount[idx3]++;
       });
-      
+
       bestTrialSittingOut.forEach((id) => {
         const idx = namesList.findIndex((p) => p.id === id);
         sittingOutCount[idx]++;
       });
-      
+
       generatedRounds.push(bestTrialMatches);
       sittingOutPrevRound = bestTrialSittingOut;
     }
-    
+
     return generatedRounds;
   };
 
@@ -302,7 +302,7 @@ export default function Home() {
   const handleSetupSubmit = (e) => {
     e.preventDefault();
     setSetupError("");
-    
+
     if (numCourts < 1) {
       setSetupError("Number of courts must be at least 1.");
       return;
@@ -315,20 +315,20 @@ export default function Home() {
       setSetupError(`You need at least ${numCourts * 4} players (4 per court) to fill all ${numCourts} courts.`);
       return;
     }
-    
+
     // Check duplicates
     const cleanedNames = [];
     const nameSet = new Set();
     let hasDuplicate = false;
     let duplicateVal = "";
-    
+
     for (let i = 0; i < playerNames.length; i++) {
       const name = playerNames[i] ? playerNames[i].trim() : "";
       if (!name) {
         setSetupError(`Please enter a name for Player ${i + 1}.`);
         return;
       }
-      
+
       const key = name.toLowerCase();
       if (nameSet.has(key)) {
         hasDuplicate = true;
@@ -341,20 +341,20 @@ export default function Home() {
         name: name
       });
     }
-    
+
     if (hasDuplicate) {
       setSetupError(`Duplicate player name detected: "${duplicateVal}". All player names must be unique.`);
       return;
     }
-    
+
     const generated = generateSchedule(cleanedNames, numCourts);
-    
+
     setPlayers(cleanedNames);
     setRounds(generated);
     setActiveSort(rankingMethod);
     setActiveTab("matches");
     setIsStarted(true);
-    
+
     saveCurrentState(generated, true, cleanedNames);
     showToast("Tournament matches generated successfully!", "success");
   };
@@ -363,7 +363,7 @@ export default function Home() {
   const handleScoreChange = (roundIdx, matchIdx, team, val) => {
     const updated = [...rounds];
     const match = updated[roundIdx][matchIdx];
-    
+
     const parsed = parseInt(val);
     if (isNaN(parsed) || parsed < 0 || parsed > 21) {
       if (team === "A") match.scoreA = val;
@@ -371,7 +371,7 @@ export default function Home() {
       setRounds(updated);
       return;
     }
-    
+
     // Apply dual-binding score constraints (totals 21)
     if (team === "A") {
       match.scoreA = parsed;
@@ -380,11 +380,11 @@ export default function Home() {
       match.scoreB = parsed;
       match.scoreA = 21 - parsed;
     }
-    
+
     // Hide inline errors
     const errorEl = document.getElementById(`validation-msg-${match.id}`);
     if (errorEl) errorEl.classList.add("hidden");
-    
+
     setRounds(updated);
   };
 
@@ -393,32 +393,32 @@ export default function Home() {
     const match = updated[roundIdx][matchIdx];
     const errorEl = document.getElementById(`validation-msg-${match.id}`);
     if (errorEl) errorEl.classList.add("hidden");
-    
+
     const valA = match.scoreA;
     const valB = match.scoreB;
-    
+
     if (valA === null || valA === "" || valB === null || valB === "") {
       showInlineError(match.id, "Please enter scores for both teams.");
       return;
     }
-    
+
     const scoreA = parseInt(valA);
     const scoreB = parseInt(valB);
-    
+
     if (isNaN(scoreA) || isNaN(scoreB) || scoreA < 0 || scoreB < 0) {
       showInlineError(match.id, "Scores must be positive whole numbers.");
       return;
     }
-    
+
     if (scoreA + scoreB !== 21) {
       showInlineError(match.id, "Scores must total exactly 21.");
       return;
     }
-    
+
     match.scoreA = scoreA;
     match.scoreB = scoreB;
     match.submitted = true;
-    
+
     setRounds(updated);
     saveCurrentState(updated);
     showToast(`Match score (${scoreA}-${scoreB}) saved successfully!`, "success");
@@ -449,14 +449,14 @@ export default function Home() {
       if (match.submitted) completedMatches++;
     });
   });
-  
+
   const remainingMatches = totalMatches - completedMatches;
   const progressPct = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0;
 
   // --- STANDINGS CALCULATOR ---
   const calculateLeaderboard = () => {
     const standings = {};
-    
+
     players.forEach((p) => {
       standings[p.id] = {
         id: p.id,
@@ -471,13 +471,13 @@ export default function Home() {
         tournamentPoints: 0
       };
     });
-    
+
     rounds.forEach((round) => {
       round.forEach((match) => {
         if (match.submitted) {
           const scoreA = match.scoreA;
           const scoreB = match.scoreB;
-          
+
           match.teamA.forEach((pid) => {
             const stats = standings[pid];
             if (stats) {
@@ -496,7 +496,7 @@ export default function Home() {
               }
             }
           });
-          
+
           match.teamB.forEach((pid) => {
             const stats = standings[pid];
             if (stats) {
@@ -518,14 +518,14 @@ export default function Home() {
         }
       });
     });
-    
+
     const list = Object.values(standings);
     list.forEach((item) => {
       item.pointDifference = item.pointsFor - item.pointsAgainst;
     });
-    
+
     const maxMP = Math.max(...list.map(p => p.matchesPlayed), 0);
-    
+
     list.sort((a, b) => {
       if (activeSort === "wins") {
         if (b.wins !== a.wins) return b.wins - a.wins;
@@ -542,12 +542,12 @@ export default function Home() {
       }
       return a.name.localeCompare(b.name);
     });
-    
+
     return list;
   };
 
   const standingsList = calculateLeaderboard();
-  
+
   // Filter search queries
   const query = searchQuery.trim().toLowerCase();
   const filteredStandings = standingsList.filter((item) =>
@@ -578,9 +578,9 @@ export default function Home() {
       "Rank", "Player Name", "Matches Played", "Record (W-T-L)", "Score Difference (SD)", "Tournament Points (TP)", "+M", "Total Score"
     ];
     const csvRows = [csvHeaders.join(",")];
-    
+
     const maxMP = Math.max(...standingsList.map(p => p.matchesPlayed), 0);
-    
+
     standingsList.forEach((item, index) => {
       const compensation = (maxMP - item.matchesPlayed) * 10;
       const totalScore = item.pointsFor + compensation;
@@ -596,7 +596,7 @@ export default function Home() {
       ];
       csvRows.push(row.join(","));
     });
-    
+
     const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -606,7 +606,7 @@ export default function Home() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     showToast("Leaderboard exported to CSV successfully!", "success");
   };
 
@@ -644,7 +644,7 @@ export default function Home() {
               <path d="M6 12A6 6 0 0 1 18 12"></path>
               <path d="M12 6A6 6 0 0 1 12 18"></path>
             </svg>
-            <h1>Padel Americano</h1>
+            <h1>PSK Padel Scoring</h1>
           </div>
           <div className="header-actions">
             <button
@@ -794,7 +794,7 @@ export default function Home() {
         {/* VIEW 2: TOURNAMENT DASHBOARD */}
         {isStarted && (
           <section className="dashboard-container">
-            
+
             {/* Stats card */}
             <div className="card stats-card fade-in" style={{ marginBottom: "24px" }}>
               <div className="stats-grid">
@@ -854,7 +854,7 @@ export default function Home() {
 
             {/* Tab content wrappers */}
             <div className="tab-content-container">
-              
+
               {/* MATCHES LIST TAB PANES */}
               {activeTab === "matches" && (
                 <div className="tab-pane fade-in">
@@ -864,7 +864,7 @@ export default function Home() {
                         <h2>Tournament Matches</h2>
                       </div>
                     </div>
-                    
+
                     <p className="section-description" style={{ marginBottom: "20px" }}>
                       Submit scores for matches below. The leaderboard and progress bar will automatically update as scores are entered.
                     </p>
@@ -879,10 +879,10 @@ export default function Home() {
                               const pA2 = getPlayerName(match.teamA[1]);
                               const pB1 = getPlayerName(match.teamB[0]);
                               const pB2 = getPlayerName(match.teamB[1]);
-                              
+
                               let teamAClasses = "team-wrapper";
                               let teamBClasses = "team-wrapper";
-                              
+
                               if (match.submitted) {
                                 if (match.scoreA > match.scoreB) {
                                   teamAClasses += " winner";
@@ -895,14 +895,14 @@ export default function Home() {
                                   teamBClasses += " tied";
                                 }
                               }
-                              
+
                               return (
                                 <div key={match.id} className="match-item highlight-round">
                                   <div className="match-court-header">
                                     <span>Court {match.court}</span>
                                     <span className="match-court-badge">Match #{roundIdx + 1}.${matchIdx + 1}</span>
                                   </div>
-                                  
+
                                   <div className="match-teams-container">
                                     {/* Team A */}
                                     <div className={teamAClasses}>
@@ -927,9 +927,9 @@ export default function Home() {
                                         )}
                                       </div>
                                     </div>
-                                    
+
                                     <div className="vs-divider">VS</div>
-                                    
+
                                     {/* Team B */}
                                     <div className={teamBClasses}>
                                       <div className="team-players">
@@ -960,7 +960,7 @@ export default function Home() {
                                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                                       <span className="msg-text">Scores must sum to 21</span>
                                     </div>
-                                    
+
                                     <div className="match-actions-buttons">
                                       {match.submitted ? (
                                         <button
@@ -1123,7 +1123,7 @@ export default function Home() {
                                 const compensation = (maxMP - item.matchesPlayed) * 10;
                                 const totalScore = item.pointsFor + compensation;
                                 const compText = compensation > 0 ? `+${compensation}` : "0";
-                                
+
                                 return (
                                   <tr key={item.id}>
                                     <td className="col-rank">
@@ -1146,7 +1146,7 @@ export default function Home() {
                       </table>
                     </div>
                   </div>
-                  
+
                   {/* Legend & Glossary Section */}
                   <div className="card standings-legend" style={{ marginTop: "24px", padding: "20px" }}>
                     <h4 style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: "700", marginBottom: "16px", color: "var(--primary)" }}>Standings Legend & Glossary</h4>
@@ -1186,8 +1186,8 @@ export default function Home() {
 
       {/* CONFIRM RESET DIALOG MODAL */}
       {showResetModal && (
-        <div 
-          className="dialog-modal-overlay" 
+        <div
+          className="dialog-modal-overlay"
           style={{
             position: "fixed",
             top: 0,
